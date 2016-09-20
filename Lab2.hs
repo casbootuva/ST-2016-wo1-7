@@ -27,46 +27,29 @@ probs n = do
 -- Time spent: 2 hours. Most of this time was spent finding out
 -- how to work with monads, in combination with 'normal' functions.
 
--- Calculate the average absolute deviation from 2500 in each percentile
--- in percentage.
--- The deviation is less than 0.01%
-calcDiff :: IO Float
-calcDiff = do
-               quartilePerc <- testPerc
-               return (absDiff quartilePerc)
+-- Result: 
+-- Run 1: [1.000416,1.002656,0.999956,0.996972]
+-- Run 2: [1.00208,1.001028,0.9976,0.999292]
+-- Run 3: [1.000756,1.000112,0.999256,0.999876]
+-- The distribution is roughly equal. The difference is no more than 2% in one group.
+testProbs :: IO[Float]
+testProbs = percentages (quartiles 1000000)
 
-quartileToPerc :: Int -> (Int, Int, Int, Int) -> (Float, Float, Float, Float)
-quartileToPerc n (a, b, c, d) = (fromIntegral a / fromIntegral n, 
-                                 fromIntegral b / fromIntegral n, 
-                                 fromIntegral c / fromIntegral n, 
-                                 fromIntegral d / fromIntegral n)
+quartiles :: Int -> IO [Int]
+quartiles n = do
+                  numbers <- probs n
+                  let a = length (filter (<0.25) numbers)
+                  let b = length (filter (\ n ->  (n > 0.25) && (n < 0.5)) numbers)
+                  let c = length (filter (\ n ->  (n > 0.5) && (n < 0.75)) numbers)
+                  let d = length (filter (>0.75) numbers)
+                  return [a,b,c,d]
 
-testPerc :: IO (Float, Float, Float, Float)
-testPerc = do
-              quartiles <- groupNums'
-              return (quartileToPerc 250000 quartiles)
-               
-absDiff :: (Float, Float, Float, Float) -> Float
-absDiff (a,b,c,d) = (abs (a-1) + abs (b-1) + abs (c-1) + abs (d-1)) / 4
-                       
-
-groupNums' :: IO (Int, Int, Int, Int)
-groupNums' = do
-                a <- groupNums (\n -> (0.00<n) && (n<0.25))
-                b <- groupNums (\n -> (0.25<n) && (n<0.50))
-                c <- groupNums (\n -> (0.50<n) && (n<0.75))
-                d <- groupNums (\n -> (0.75<n) && (n<1.00))
-                return (a, b, c, d)
-
-groupNums :: (Float -> Bool) -> IO Int
-groupNums f = do 
-                numbers <- ioFilter f (probs 1000000)
-                return $ length numbers
-                         
-ioFilter :: (Float -> Bool) -> IO [Float] -> IO [Float]
-ioFilter f ys = do 
-                   numbers <- ys
-                   return $ filter f numbers
+percentages :: IO [Int] -> IO [Float]
+percentages (xs) = do
+                      quarts <- xs
+                      let n = (fromIntegral $ sum quarts) / (fromIntegral $ length quarts)
+                      let p = map (\q -> (fromIntegral q) / ( n )) (quarts)
+                      return p
                         
 -- 2. 
 -- Time spent 1h
@@ -83,8 +66,10 @@ triangle a b c | not ((a+b>c) && (a+c>b) && (b+c>a)) = NoTriangle
                | otherwise              = Other
                
 -- Result: True
+testTriangleEq :: Bool
 testTriangleEq = triangle 2 2 2 == Equilateral
 -- Result: True
+testTriangleRec :: Bool
 testTriangleRec = all (==Rectangular) [triangle a b c | a <- [3,4,5], b <- [3,4,5], c <- [3,4,5], (a/=b) && (b/=c) && (c/=a)]
                
 
@@ -165,6 +150,8 @@ deran_prop xs ys = True `notElem` zipWith (==) xs ys
 -- Test for Prop B:
 -- Time Spent: 2:00
 -- If isDerangement is true, the deran_prop should hold.
+-- Result: True
+testDeranProp :: Bool
 testDeranProp = hoareTest (isDerangement [1..6]) id (deran_prop [1..6]) (permutations [1..6])
 
 hoareTest :: (a -> Bool) -> (a -> a) -> (a -> Bool) -> [a] -> Bool
@@ -211,6 +198,7 @@ rot13rotate c | isUpper c = upper_alphabet!!(head (elemIndices c upper_alphabet)
 -- Finally, turn the specification into a series of QuickCheck 
 -- properties, and use these to test your implementation.
 -- All these tests pass
+testRot13_upper, testRot13_lower, testRot13_other, testRot13_inverse :: IO Result
 testRot13_upper = quickCheckResult (\n -> (n>=0) --> rot13 upper_alphabet!!n == upper_alphabet!!(n+13))
 testRot13_lower = quickCheckResult (\n -> (n>=0) --> rot13 lower_alphabet!!n == lower_alphabet!!(n+13))
 testRot13_other = quickCheckResult (\n -> (n>=0 && not (isLetter (chr n))) --> rot13 [chr n] == [chr n])
