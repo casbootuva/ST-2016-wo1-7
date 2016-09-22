@@ -148,38 +148,22 @@ cnfExamples = [
 cnf :: Form -> Form
 cnf = arrowfree # nnf
 
-isNotInfixOf :: Eq a => [a] -> [a] -> Bool
-isNotInfixOf xs ys = not $ isInfixOf xs ys
-
--- Postconditions for cnf:
--- Should not contain implication (==>) or double implication (<=>)
-no_implication_prop = forAll genForm (\f -> "=>" `isNotInfixOf` (show(cnf f)))
-
--- Input and output should be equivalent
-cnf_eq_prop = forAll genForm (\f -> equiv f (cnf f))
-
--- Negation signs are allowed only in front of proposition letters.
-only_letter_negation f = all (\n -> n `isNotInfixOf` (show f)) ["-+", "-*"]
-
--- Command: verboseCheck $ only_letter_negation_prop arrowfree
--- Result: 
--- *** Failed! Falsifiable (after 2 tests):
--- (*(1 2 3)<=>+(1 3 -1 -2))
---
--- Command: verboseCheck $ only_letter_negation_prop cnf
--- Result: 
--- +++ OK, passed 100 tests.
-only_letter_negation_prop f = forAll genForm (\n -> only_letter_negation (f n))
-
-
-testCnf = all (\(x,y) -> equiv x (cnf x)) cnfExamples
-
-
 {-| 4. 
+  Write a formula generator for random testing of properties of propositional logic, 
+  or teach yourself enough QuickCheck to use random QuickCheck testing of formulas.
 
-Formulate a number of relevant properties to test.
+  Use your random testing method to test the correctness of the conversion program 
+  from the previous exercise. Formulate a number of relevant properties to test, 
+  and carry out the tests, either with your own random formula generator or with QuickCheck.
+
+  Deliverables: 
+    D4.1: Generator for formulas
+    D4.2: Sequence of test properties
+    D4.3: Test report
+    D4.4: Indication of time spent: 2:00
 -}
 
+-- D4.1: Generator for formulas
 genForm :: Gen Form
 genForm =
      do 
@@ -192,8 +176,75 @@ genForm =
         dis <- elements [Dsj x | x <- filter (\y -> length y > 1) (subsequences (p ++ np))]
         imp <- elements [Impl x y | x <- [id,neg,dis,con],y <- [id,neg,dis,con]]
         eq <- elements [Equiv x y | x <- [id,neg,dis,con],y <- [id,neg,dis,con]]
-        r <- elements ([id,neg,dis,imp,eq,con])
+        ba <- elements [Neg x | x <- [id,neg,dis,con]]
+        r <- elements ([id,neg,dis,imp,eq,con,ba])
         return (r)
+
+isNotInfixOf :: Eq a => [a] -> [a] -> Bool
+isNotInfixOf xs ys = not $ isInfixOf xs ys
+
+-- D4.2: Sequence of test properties
+-- D4.3: Test report
+
+-- Postconditions for arrowfree:
+-- 1. Should not contain implication (==>) or double implication (<=>)
+no_implication_prop f = forAll genForm (\n -> "=>" `isNotInfixOf` (show(f n)))
+-- Command: 
+--   verboseCheck $ no_implication_prop id
+-- Result: 
+--   *** Failed! Falsifiable (after 1 test):
+--   (-3==>*(2 3))
+
+-- Command: 
+--   verboseCheck $ no_implication_prop arrowfree
+-- Result: 
+--   +++ OK, passed 100 tests.
+--
+
+-- Command: 
+--   verboseCheck $ no_implication_prop cnf 
+-- Result: 
+--   +++ OK, passed 100 tests.
+
+-- For nnf and arrowfree:
+-- 2. Input and output should be equivalent
+equivalent_prop f = forAll genForm (\n-> equiv n (f n))
+-- Command: 
+--   verboseCheck $ equivalent_prop id
+-- Result: 
+--   +++ OK, passed 100 tests.
+
+-- Command: 
+--   verboseCheck $ equivalent_prop arrowfree
+-- Result: 
+--   +++ OK, passed 100 tests.
+
+-- Command: 
+--   verboseCheck $ equivalent_prop cnf
+-- Result: 
+--   +++ OK, passed 100 tests.
+
+-- For nnf:
+-- 3. Negation signs are allowed only in front of proposition letters.
+only_letter_negation f = all (\n -> n `isNotInfixOf` (show f)) ["-+", "-*"]
+only_letter_negation_prop f = forAll genForm (\n -> only_letter_negation (f n))
+
+-- Command: 
+--   verboseCheck $ only_letter_negation_prop id
+-- Result: 
+--   *** Failed! Falsifiable (after 15 tests):
+--   -+(1 2 3 -1 -3)
+
+-- Command: 
+--   verboseCheck $ only_letter_negation_prop arrowfree
+-- Result: 
+--   *** Failed! Falsifiable (after 5 tests):
+--   -+(-2 -3)
+
+-- Command: 
+--   verboseCheck $ only_letter_negation_prop cnf
+-- Result: 
+--   +++ OK, passed 100 tests.
 
 
 
