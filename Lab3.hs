@@ -66,6 +66,9 @@ testEntails4 = not $ entails prop1_b prop1_a
 trueVals :: Form -> [Valuation]
 trueVals f = filter (\ v -> evl v f) (allVals f)
 
+falseVals :: Form -> [Valuation]
+falseVals f = filter (\v -> not $ evl v f) (allVals f)
+
  -- | logical equivalence
 equiv :: Form -> Form -> Bool
 equiv f1 f2 = tautology $ Equiv f1 f2
@@ -144,9 +147,18 @@ cnfExamples = [
                 (Neg (Cnj [(Neg (Prop 1)), (Neg (Prop 2))]), Dsj [(Prop 1), (Prop 2)])
                 ]
 
-               
+--  Part of cnf using arrowfree and nnf
+-- cnf :: Form -> Form
+-- cnf = arrowfree # nnf
+
+-- CNF in the form of (..∨..) ∧ ... ∧ (..∨..)
 cnf :: Form -> Form
-cnf = arrowfree # nnf
+cnf f = Cnj $ foldr (\p n -> n ++ [(Dsj (map (\(x,y) -> if y then Neg (Prop x) else (Prop x)) p))]) [] (falseVals f)
+
+
+-- Foreach false valuation -> negate the atom value of the valuation, put in in the list of the or. +[...] 
+-- *(+[...], +[...], +[..])
+
 
 {-| 4. 
   Write a formula generator for random testing of properties of propositional logic, 
