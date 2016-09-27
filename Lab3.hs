@@ -213,8 +213,8 @@ genForm =
         imp <- elements [Impl x y | x <- [id,neg,dis,con],y <- [id,neg,dis,con]]
         eq <- elements [Equiv x y | x <- [id,neg,dis,con],y <- [id,neg,dis,con]]
         ba <- elements [Neg x | x <- [id,neg,dis,con]]
-        r <- elements ([id,neg,dis,imp,eq,con,ba])
-        return (r)
+        r <- elements [id,neg,dis,imp,eq,con,ba]
+        return r
 
 isNotInfixOf :: Eq a => [a] -> [a] -> Bool
 isNotInfixOf xs ys = not $ isInfixOf xs ys
@@ -341,10 +341,11 @@ form2cls = cnf # cnf2cls
 -- D5.4: Documentation of the automated testing process
 
 -- Lenght of the clauses list should equal the number of conjuncts.
-correct_length_prop = forAll genForm (\n -> (numberOfCnjs $ cnf n) == (length $ form2cls n))
+correct_length_prop :: Property
+correct_length_prop = forAll genForm (\n -> numberOfCnjs (cnf n) == length (form2cls n))
                        where numberOfCnjs (Cnj fs) = length fs
-                             numberOfCnjs (Prop x) = 1
-                             numberOfCnjs (Neg (Prop x)) = 1
+                             numberOfCnjs (Prop _) = 1
+                             numberOfCnjs (Neg (Prop _)) = 1
                              numberOfCnjs _ = error "Formula not in CNF"
 -- Command: 
 --   quickCheck correct_length_prop
