@@ -282,8 +282,73 @@ only_letter_negation_prop f = forAll genForm (\n -> only_letter_negation (f n))
 -- Result: 
 --   +++ OK, passed 100 tests.
 
+{-| 5. 
+
+  In SAT solving, one common technique is resolution style theorem proving. 
+  For that, it is usual to represent a formula in CNF as a list of clauses, 
+  were a clause is a list of literals, and where a literal is represented as an integer, 
+  with negative sign indicating negation. 
+  
+  Clauses should be read disjunctively, and clause lists conjunctively. 
+  5 represents the atom p5,
+  −5 represents the literal ¬p5, 
+  The clause [5,−6] represents p5∨¬p6, 
+  The clause list [[4],[5,−6]] represents the formula p4∧(p5∨¬p6).
+
+  Write a program for converting formulas to clause form.
+
+  If you combine your conversion function from an earlier exercise with cnf2cls 
+  you have a function that can convert any formula to clause form.
+
+  Use automated testing to check whether your translation is correct, 
+  employing some appropriate properties to check.
 
 
+Deliverables: 
+  D5.1: Conversion program
+  D5.2: Test generator
+  D5.3: Test properties
+  D5.4: Documentation of the automated testing process
+  D5.5: Indication of time spent: 3:00
+-}
+type Clause  = [Int]
+type Clauses = [Clause]
+    
+-- p4∧(p5∨¬p6) -> [[4],[5,−6]]
+cnf2cls :: Form -> Clauses
+cnf2cls (Cnj fs) = map cnf2cls' fs
+cnf2cls  _       = error "Formula not in CNF"
+
+-- Test:
+--   Command:  cnf2cls (Cnj [(Prop 4), (Dsj [(Prop 5), (Neg (Prop 6))])])
+--    Result:  [[4],[5,-6]]
+
+cnf2cls' :: Form -> Clause
+cnf2cls' (Neg (Neg f))  = cnf2cls' f
+cnf2cls' (Dsj fs)       = foldr (\n p -> cnf2cls' n ++ p) [] fs
+cnf2cls' (Prop x)       = [x]
+cnf2cls' (Neg (Prop x)) = [-x]
+cnf2cls'  _             = error "Formula not in CNF"
 
 
-            
+-- D5.1: Conversion program
+form2cls :: Form -> Clauses 
+form2cls = cnf # cnf2cls
+
+-- D5.2: Test generator.  Using the test generator from exercise 4.
+
+-- D5.3: Test properties
+-- D5.4: Documentation of the automated testing process
+
+-- Lenght of the clauses list should equal the number of conjuncts.
+correct_length_prop = forAll genForm (\n -> (numberOfCnjs $ cnf n) == (length $ form2cls n))
+                       where numberOfCnjs (Cnj fs) = length fs
+                             numberOfCnjs (Prop x) = 1
+                             numberOfCnjs (Neg (Prop x)) = 1
+                             numberOfCnjs _ = error "Formula not in CNF"
+-- Command: 
+--   quickCheck correct_length_prop
+-- Result:
+--   +++ OK, passed 100 tests.
+
+
