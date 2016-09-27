@@ -11,6 +11,8 @@ import Lecture3
   of satisfiability, tautology, contradiction, logical 
   entailment and logical equivalence for formulas of 
   propositional logic.
+  
+  Time Spent: 2:00
 -}
 
 -- Contradiction: There is no valuation that makes f true
@@ -20,11 +22,14 @@ contradiction = not.satisfiable
 -- + = OR = disjunction
 -- * = AND = conjunction
 -- - = NOT = negation
+
+-- Result: True
 isContr = contradiction $ head (parse "*(1 -1)")
 
 tautology :: Form -> Bool
 tautology f = all (\ v -> evl v f) (allVals f)
 
+-- Result: True
 isTaut = tautology $ head (parse "+(1 -1)")
 
 -- | logical entailment 
@@ -32,6 +37,11 @@ isTaut = tautology $ head (parse "+(1 -1)")
 -- F2: All C are A
 -- Therefore, all C are B ->  F2 entails F1
 -- All valuations that make F2 true, also make F1 true.
+-- BELOW ARE TWO VERSIONS:
+-- Version A: The hard way, checking whether the True valuations of Form A also are True valuations of Form B.
+-- Version B: The easy way, checking whether Form A implies Form B, using the Impl token to create a new Form.
+
+-- Version A: (hard)
 entails :: Form -> Form -> Bool
 entails a b | length entailedVals == 0 = False
             | otherwise = all (\ v -> evl v b) entailedVals
@@ -42,6 +52,7 @@ entails a b | length entailedVals == 0 = False
 filterEntails :: Valuation -> [Valuation] -> [Valuation]
 filterEntails a = filter (\n -> a `isSubsequenceOf` n)
 
+-- Test for filterEntails
 testFilterEntails_a = [(1,True)]
 testFilterEntails_b = [[(1,True),  (2,True) ], 
                        [(1,True),  (2,False)],
@@ -49,6 +60,8 @@ testFilterEntails_b = [[(1,True),  (2,True) ],
                        [(1,False), (2,False)]]
 testFilterEntails_expected = [[(1,True),  (2,True) ], 
                               [(1,True),  (2,False)]]
+                              
+-- Result: True
 testFilterEntails = filterEntails testFilterEntails_a testFilterEntails_b == testFilterEntails_expected
 
 filterEntails' ::[Valuation] -> [Valuation] -> [Valuation]
@@ -58,10 +71,31 @@ filterEntails' (x:xs) ys = nub ((filterEntails x ys) ++ (filterEntails' xs ys))
 
 prop1_a = head (parse "1")
 prop1_b = head (parse "+(1 2)")
+
+-- Result: True
 testEntails1 = entails prop1_a prop1_b
+-- Result: True
 testEntails2 = entails prop1_a prop1_a
+-- Result: True
 testEntails3 = entails prop1_b prop1_b
+-- Result: True
 testEntails4 = not $ entails prop1_b prop1_a
+
+-- Version B: (easy)
+entails' :: Form -> Form -> Bool
+entails' f1 f2 = tautology $ Impl f1 f2
+
+
+-- Result: True
+testEntails1' = entails' prop1_a prop1_b
+-- Result: True
+testEntails2' = entails' prop1_a prop1_a
+-- Result: True
+testEntails3' = entails' prop1_b prop1_b
+-- Result: True
+testEntails4' = not $ entails' prop1_b prop1_a
+
+
 
 trueVals :: Form -> [Valuation]
 trueVals f = filter (\ v -> evl v f) (allVals f)
@@ -84,23 +118,12 @@ equiv f1 f2 = tautology $ Equiv f1 f2
 -- Deliverables:
 --   D2.1: Test report describing the test method used and the outcome of the test, 
 --   D2.2: Indication of time spent: 2:00
-
-prop_unambiguous :: String -> Bool
-prop_unambiguous s = length (parse s) == 1
-
-prop_show :: String -> Bool
-prop_show s = length forms == 1 --> (show form) == s
-              where forms = parse s
-                    form = head forms
                     
 prop_parse :: (Form, String) -> Bool
 prop_parse (f,s) | f /= (parsef s)        = False
                  | s /= show f            = False
                  | f /= (parsef $ show f) = False
                  | otherwise              = True
-
-prop_parse_inverse :: Form -> Bool 
-prop_parse_inverse f = f == (head $ parse $ show f)
    
 formExamples :: [(Form, String)]
 formExamples = [(Prop 1,                         "1"),
@@ -117,6 +140,14 @@ formExamples = [(Prop 1,                         "1"),
 -- Result: True
 testParse1 = all prop_parse formExamples
 
+
+-- Using the generator, and only testing whether (parse $ show f) == f
+prop_parse_inverse = forAll genForm (\f -> f == (head $ parse $ show f))
+-- Command: 
+--   verboseCheck $ prop_parse_inverse
+-- Result: 
+--   +++ OK, passed 100 tests.
+
 parsef :: String -> Form
 parsef = head.parse
 
@@ -132,18 +163,6 @@ Deliverables:
   D3.2: Indication of time spent: 1:00
 -}
 
-
-cnfExamples :: [(Form, Form)]
-cnfExamples = [ 
---              ¬¬¬p  <=>  ¬p
-                (Neg (Neg (Neg (Prop 1))), Neg (Prop 1)),
---               ¬(p∨¬q)  <=> (¬p∨¬q) ∧ (¬p∨q) ∧ (p∨q)
-
-                (parsef "-+(1 -2)", parsef "*(+(-1 -2) +(-1 2) +(1 2))"),
---              ¬(¬p∧¬q)  <=> p∨q
-                (Neg (Cnj [(Neg (Prop 1)), (Neg (Prop 2))]), Dsj [(Prop 1), (Prop 2)])
-                ]
-
 --  Part of cnf using arrowfree and nnf
 -- cnf :: Form -> Form
 -- cnf = arrowfree # nnf
@@ -152,9 +171,18 @@ cnfExamples = [
 falseVals :: Form -> [Valuation]
 falseVals f = filter (\v -> not $ evl v f) (allVals f)
 
-cnf :: Form -> Form
-cnf f = Cnj $ foldr (\p n -> n ++ [(Dsj (map (\(x,y) -> if y then Neg (Prop x) else (Prop x)) p))]) [] (falseVals f)
+-- Conversion steps:
+-- 1. Find all False valuations of formule f (falseVals f)
+-- 2. For each valuation, negate the values of the atoms, and put them in a disjunction. (cnf_dsj)
+-- 3. Do this for all the valuations, and add them to a list (foldr)
+-- 4. The conjunction if this list will be the CNF. 
 
+cnf :: Form -> Form
+cnf f = Cnj $ foldr (\p n -> (cnf_dsj p):n) [] (falseVals f)
+
+--  Conversion:  [(Name1, True), (Name2, False)] -> (not Name1 ∨ Name2) == Dsj [not Name1, Name2]
+cnf_dsj :: Valuation -> Form
+cnf_dsj vs = Dsj $ map (\(x,y) -> if y then Neg (Prop x) else (Prop x)) vs
 
 {-| 4. 
   Write a formula generator for random testing of properties of propositional logic, 
